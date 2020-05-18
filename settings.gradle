@@ -1,2 +1,2 @@
-include ':app'
+include ':app', ':httpclient-4.4.1.2'
 rootProject.name='PracticalTest02'
