@@ -28,33 +28,19 @@ public class ServerThread extends Thread {
     private int port;
 
     public ServerThread(int port) {
+        isRunning = true;
         this.port = port;
     }
 
-    private class MyObject {
-        String weather;
-        String temp;
-        private MyObject(String weather, String temp) {
-            this.weather = weather;
-            this.temp = temp;
-        }
-    }
+    private String updateTime = "";
+    private String eurVal = "";
+    private String usdVal = "";
 
-    private HashMap<String, MyObject> map = new HashMap<>();
-
-    @Override
-    public void run() {
-        isRunning = true;
-        try {
-            serverSocket = new ServerSocket(port);
-
+    private class UpdateThread extends Thread {
+        @Override
+        public void run() {
             while (isRunning) {
-                Socket socket = serverSocket.accept();
-
-                BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintWriter pw = new PrintWriter(socket.getOutputStream(), true);
-
-                String given_valuta = reader.readLine();
+                String given_valuta = "EUR";
                 String q = "https://api.coindesk.com/v1/bpi/currentprice/" + given_valuta + ".json";
 
                 Log.d("mine", q);
@@ -64,18 +50,158 @@ public class ServerThread extends Thread {
                 HttpGet getr = new HttpGet(q);
 
                 ResponseHandler<String> respH = new BasicResponseHandler();
-                String res = httpCl.execute(getr, respH);
+                String res = null;
+                try {
+                    res = httpCl.execute(getr, respH);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
                 Log.d("mine", res);
 
-                JSONObject result = new JSONObject(res);
-                JSONObject aux = (JSONObject) result.get("bpi");
-                JSONObject aux2 = (JSONObject) aux.get(given_valuta);
-                String resf = aux2.getString("rate");
+                JSONObject result = null;
+                try {
+                    result = new JSONObject(res);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                JSONObject aux = null;
+                try {
+                    aux = (JSONObject) result.get("bpi");
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                JSONObject aux2 = null;
+                try {
+                    aux2 = (JSONObject) aux.get(given_valuta);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                String resf = null;
+                try {
+                    resf = aux2.getString("rate");
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
                 Log.d("mine", resf);
+                eurVal = resf;
 
-                pw.println(resf);
+                // Get dollars
+                given_valuta = "USD";
+                q = "https://api.coindesk.com/v1/bpi/currentprice/" + given_valuta + ".json";
 
+                Log.d("mine", q);
 
+                httpCl = new DefaultHttpClient();
+
+                getr = new HttpGet(q);
+
+                respH = new BasicResponseHandler();
+                res = null;
+                try {
+                    res = httpCl.execute(getr, respH);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                result = null;
+                try {
+                    result = new JSONObject(res);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+                aux = null;
+                try {
+                    aux = (JSONObject) result.get("bpi");
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+                aux2 = null;
+                try {
+                    aux2 = (JSONObject) aux.get(given_valuta);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                resf = null;
+                try {
+                    resf = aux2.getString("rate");
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                usdVal = resf;
+
+                // Get time
+                aux = null;
+                try {
+                    aux = (JSONObject) result.get("time");
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+                String tm = "";
+                try {
+                    tm = aux.getString("updated");
+                    updateTime = tm;
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+                Log.d("mine", updateTime);
+                Log.d("mine", eurVal);
+                Log.d("mine", usdVal);
+
+                Log.d("mine", "waiting");
+
+                try {
+                    this.sleep(60000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    @Override
+    public void run() {
+        isRunning = true;
+        try {
+            new UpdateThread().start();
+            serverSocket = new ServerSocket(port);
+
+            while (isRunning) {
+                Socket socket = serverSocket.accept();
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                PrintWriter pw = new PrintWriter(socket.getOutputStream(), true);
+                String given_valuta = reader.readLine();
+                if (updateTime.length() > 0) {
+                    if (given_valuta.equals("EUR"))
+                        pw.println(eurVal);
+                    else
+                        pw.println(usdVal);
+                } else {
+
+                    String q = "https://api.coindesk.com/v1/bpi/currentprice/" + given_valuta + ".json";
+
+                    Log.d("mine", q);
+
+                    HttpClient httpCl = new DefaultHttpClient();
+
+                    HttpGet getr = new HttpGet(q);
+
+                    ResponseHandler<String> respH = new BasicResponseHandler();
+                    String res = httpCl.execute(getr, respH);
+                    Log.d("mine", res);
+
+                    JSONObject result = new JSONObject(res);
+                    JSONObject aux = (JSONObject) result.get("bpi");
+                    JSONObject aux2 = (JSONObject) aux.get(given_valuta);
+                    String resf = aux2.getString("rate");
+                    Log.d("mine", resf);
+
+                    pw.println(resf);
+                }
 
                 socket.close();
             }
